@@ -59,6 +59,7 @@ from einops import rearrange
 from torch import einsum
 import safetensors.torch
 import model as model_util
+from networks.lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
 
 TOKENIZER_PATH = "openai/clip-vit-large-patch14"
 
@@ -154,17 +155,16 @@ class BucketManager:
     def select_bucket(self, image_width, image_height):
         aspect_ratio = image_width / image_height
         if not self.no_upscale:
-            # 同じaspect ratioがあるかもしれないので（fine tuningで、no_upscale=Trueで前処理した場合）、解像度が同じものを優先する
             reso = (image_width, image_height)
             if reso in self.predefined_resos_set:
                 pass
             else:
                 ar_errors = self.predefined_aspect_ratios - aspect_ratio
-                predefined_bucket_id = np.abs(ar_errors).argmin()  # 当該解像度以外でaspect ratio errorが最も少ないもの
+                predefined_bucket_id = np.abs(ar_errors).argmin()
                 reso = self.predefined_resos[predefined_bucket_id]
 
             ar_reso = reso[0] / reso[1]
-            if aspect_ratio > ar_reso:  # 横が長い→縦を合わせる
+            if aspect_ratio > ar_reso:
                 scale = reso[1] / image_height
             else:
                 scale = reso[0] / image_width
@@ -173,13 +173,10 @@ class BucketManager:
             # print("use predef", image_width, image_height, reso, resized_size)
         else:
             if image_width * image_height > self.max_area:
-                # 画像が大きすぎるのでアスペクト比を保ったまま縮小することを前提にbucketを決める
                 resized_width = math.sqrt(self.max_area * aspect_ratio)
                 resized_height = self.max_area / resized_width
-                assert abs(resized_width"
+                assert abs(resized_width / resized_height - aspect_ratio) < 1e-2, "aspect rattio is illegal"
 
-                # リサイズ後の短辺または長辺をreso_steps単位にする：aspect ratioの差が少ないほうを選ぶ
-                # 元のbucketingと同じロジック
                 b_width_rounded = self.round_to_steps(resized_width)
                 b_height_in_wr = self.round_to_steps(b_width_rounded / aspect_ratio)
                 ar_width_rounded = b_width_rounded / b_height_in_wr
@@ -197,9 +194,8 @@ class BucketManager:
                     resized_size = (int(b_height_rounded * aspect_ratio + 0.5), b_height_rounded)
                 # print(resized_size)
             else:
-                resized_size = (image_width, image_height)  # リサイズは不要
+                resized_size = (image_width, image_height)
 
-            # 画像のサイズ未満をbucketのサイズとする（paddingせずにcroppingする）
             bucket_width = resized_size[0] - resized_size[0] % self.reso_steps
             bucket_height = resized_size[1] - resized_size[1] % self.reso_steps
             # print("use arbitrary", image_width, image_height, resized_size, bucket_width, bucket_height)
@@ -313,7 +309,7 @@ class DreamBoothSubset(BaseSubset):
         token_warmup_min,
         token_warmup_step,
     ) -> None:
-        assert image_dir is not None,
+        assert image_dir is not None, "image_dir must be specified"
 
         super().__init__(
             image_dir,
@@ -359,7 +355,7 @@ class FineTuningSubset(BaseSubset):
         token_warmup_min,
         token_warmup_step,
     ) -> None:
-        assert metadata_file is not None,
+        assert metadata_file is not None, "metadata_file must be specified"
 
         super().__init__(
             image_dir,
@@ -779,18 +775,17 @@ class BaseDataset(torch.utils.data.Dataset):
 
         return img, face_cx, face_cy, face_w, face_h
 
-    # いい感じに切り出す
     def crop_target(self, subset: BaseSubset, image, face_cx, face_cy, face_w, face_h):
         height, width = image.shape[0:2]
         if height == self.height and width == self.width:
             return image
 
-        # 画像サイズはsizeより大きいのでリサイズする
+        # resize image
         face_size = max(face_w, face_h)
-        min_scale = max(self.height / height, self.width / width)  # 画像がモデル入力サイズぴったりになる倍率（最小の倍率）
-        min_scale = min(1.0, max(min_scale, self.size / (face_size * subset.face_crop_aug_range[1])))  # 指定した顔最小サイズ
-        max_scale = min(1.0, max(min_scale, self.size / (face_size * subset.face_crop_aug_range[0])))  # 指定した顔最大サイズ
-        if min_scale >= max_scale:  # range指定がmin==max
+        min_scale = max(self.height / height, self.width / width)
+        min_scale = min(1.0, max(min_scale, self.size / (face_size * subset.face_crop_aug_range[1])))
+        max_scale = min(1.0, max(min_scale, self.size / (face_size * subset.face_crop_aug_range[0])))
+        if min_scale >= max_scale: 
             scale = min_scale
         else:
             scale = random.uniform(min_scale, max_scale)
@@ -803,16 +798,14 @@ class BaseDataset(torch.utils.data.Dataset):
         face_cy = int(face_cy * scale + 0.5)
         height, width = nh, nw
 
-        # 顔を中心として448*640とかへ切り出す
+
         for axis, (target_size, length, face_p) in enumerate(zip((self.height, self.width), (height, width), (face_cy, face_cx))):
-            p1 = face_p - target_size // 2  # 顔を中心に持ってくるための切り出し位置
+            p1 = face_p - target_size // 2
 
             if subset.random_crop:
-                # 背景も含めるために顔を中心に置く確率を高めつつずらす
-                range = max(length - face_p, face_p)  # 画像の端から顔中心までの距離の長いほう
-                p1 = p1 + (random.randint(0, range) + random.randint(0, range)) - range  # -range ~ +range までのいい感じの乱数
+                range = max(length - face_p, face_p)
+                p1 = p1 + (random.randint(0, range) + random.randint(0, range)) - range
             else:
-                # range指定があるときのみ、すこしだけランダムに（わりと適当）
                 if subset.face_crop_aug_range[0] != subset.face_crop_aug_range[1]:
                     if face_size > self.size // 10 and face_size >= 40:
                         p1 = p1 + random.randint(-face_size // 20, +face_size // 20)
@@ -851,7 +844,7 @@ class BaseDataset(torch.utils.data.Dataset):
             subset = self.image_to_subset[image_key]
             loss_weights.append(self.prior_loss_weight if image_info.is_reg else 1.0)
 
-            # image/latentsを処理する
+            # image/latents
             if image_info.latents is not None:
                 latents = image_info.latents if not subset.flip_aug or random.random() < 0.5 else image_info.latents_flipped
                 image = None
@@ -892,7 +885,7 @@ class BaseDataset(torch.utils.data.Dataset):
                     img = aug(image=img)["image"]
 
                 latents = None
-                image = self.image_transforms(img)  # -1.0~1.0 torch.Tensorになる
+                image = self.image_transforms(img)  # -1.0~1.0 torch.Tensor
 
             images.append(image)
             latents_list.append(latents)
@@ -1169,7 +1162,6 @@ class FineTuningDataset(BaseDataset):
 
             self.num_train_images += len(metadata) * subset.num_repeats
 
-            # TODO do not record tag freq when no tag
             self.set_tag_frequency(os.path.basename(subset.metadata_file), tags_list)
             subset.img_count = len(metadata)
             self.subsets.append(subset)
@@ -1292,7 +1284,6 @@ class DatasetGroup(torch.utils.data.ConcatDataset):
 
         # simply concat together
         # TODO: handling image_data key duplication among dataset
-        #   In practical, this is not the big issue because image_data is accessed from outside of dataset only for debug_dataset.
         for dataset in datasets:
             self.image_data.update(dataset.image_data)
             self.num_train_images += dataset.num_train_images
@@ -1394,7 +1385,7 @@ def glob_images(directory, base="*"):
             img_paths.extend(glob.glob(os.path.join(glob.escape(directory), base + ext)))
         else:
             img_paths.extend(glob.glob(glob.escape(os.path.join(directory, base + ext))))
-    img_paths = list(set(img_paths))  # 重複を排除
+    img_paths = list(set(img_paths))
     img_paths.sort()
     return img_paths
 
@@ -1407,19 +1398,19 @@ def glob_images_pathlib(dir_path, recursive):
     else:
         for ext in IMAGE_EXTENSIONS:
             image_paths += list(dir_path.glob("*" + ext))
-    image_paths = list(set(image_paths))  # 重複を排除
+    image_paths = list(set(image_paths))
     image_paths.sort()
     return image_paths
 
 
 # endregion
 
-# region モジュール入れ替え部
+# region
 """
 Module replacement for faster speed
 """
 
-# FlashAttentionを使うCrossAttention
+# FlashAttention CrossAttention
 # based on https://github.com/lucidrains/memory-efficient-attention-pytorch/blob/main/memory_efficient_attention_pytorch/flash_attention.py
 # LICENSE MIT https://github.com/lucidrains/memory-efficient-attention-pytorch/blob/main/LICENSE
 
@@ -2848,7 +2839,7 @@ def sample_images(
     if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
         return
     if args.sample_every_n_epochs is not None:
-        # sample_every_n_steps は無視する
+        # sample_every_n_steps
         if epoch is None or epoch % args.sample_every_n_epochs != 0:
             return
     else:

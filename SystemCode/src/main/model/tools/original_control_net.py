@@ -7,7 +7,7 @@ from safetensors.torch import load_file
 from diffusers import UNet2DConditionModel
 from diffusers.models.unet_2d_condition import UNet2DConditionOutput
 
-import model.model as model_util
+import model as model_util
 
 """
 From Hugging Face Diffusers
