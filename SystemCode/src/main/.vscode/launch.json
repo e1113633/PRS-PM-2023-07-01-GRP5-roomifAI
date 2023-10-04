@@ -5,17 +5,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Current File",
+      "name": "Python: Generate",
       "type": "python",
       "request": "launch",
-      "program": "${file}",
+      "program": "model/generate.py",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "args": [
         "--prompt",
         "blue bedroom with a bed and dresser",
         "--outdir",
-        "./output/"
+        "./output/",
+        "--bf16",
+        "--n_iter",
+        "12",
+        "--H",
+        "512",
+        "--W",
+        "512"
       ],
       "justMyCode": false
     }

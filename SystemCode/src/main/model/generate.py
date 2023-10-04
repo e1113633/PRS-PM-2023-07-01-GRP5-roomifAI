@@ -82,6 +82,7 @@ def preprocess_mask(mask):
 class BatchDataBase(NamedTuple):
     step: int
     prompt: str
+    negative_prompt: str
     seed: int
     init_image: Any
     mask_image: Any
@@ -128,7 +129,7 @@ def main(args):
         text_encoder, vae, unet = model_util.load_models_from_stable_diffusion_checkpoint(checkpoint_file)
     else:
         print("load Diffusers pretrained models")
-        loading_pipe = DiffusionPipeline.from_pretrained(checkpoint_file, safety_checker=None, torch_dtype=dtype)
+        loading_pipe = StableDiffusionPipeline.from_pretrained(checkpoint_file, safety_checker=None, torch_dtype=dtype)
         text_encoder = loading_pipe.text_encoder
         vae = loading_pipe.vae
         unet = loading_pipe.unet
@@ -457,7 +458,7 @@ def main(args):
                 for token_id, embed in zip(token_ids, embeds):
                     token_embeds[token_id] = embed
 
-    # promptを取得する
+    # prompt
     if args.from_file is not None:
         print(f"reading prompts from {args.from_file}")
         with open(args.from_file, "r", encoding="utf-8") as f:
@@ -471,7 +472,7 @@ def main(args):
     if args.interactive:
         args.n_iter = 1
 
-    # img2imgの前処理、画像の読み込みなど
+    # img2img preprocessing
     def load_images(path):
         if os.path.isfile(path):
             paths = [path]
@@ -498,7 +499,7 @@ def main(args):
         resized = []
         for img in imgs:
             r_img = img.resize(size, Image.Resampling.LANCZOS)
-            if hasattr(img, "filename"):  # filename属性がない場合があるらしい
+            if hasattr(img, "filename"):
                 r_img.filename = img.filename
             resized.append(r_img)
         return resized
@@ -519,7 +520,6 @@ def main(args):
     else:
         mask_images = None
 
-    # promptがないとき、画像のPngInfoから取得する
     if init_images is not None and len(prompt_list) == 0 and not args.interactive:
         print("get prompts from images' meta data")
         for img in init_images:
@@ -529,7 +529,6 @@ def main(args):
                     prompt += " --n " + img.text["negative-prompt"]
                 prompt_list.append(prompt)
 
-        # プロンプトと画像を一致させるため指定回数だけ繰り返す（画像を増幅する）
         l = []
         for im in init_images:
             l.extend([im] * args.images_per_prompt)
@@ -541,7 +540,6 @@ def main(args):
                 l.extend([im] * args.images_per_prompt)
             mask_images = l
 
-    # 画像サイズにオプション指定があるときはリサイズする
     if args.W is not None and args.H is not None:
         if init_images is not None:
             print(f"resize img2img source images to {args.W}*{args.H}")
@@ -552,7 +550,6 @@ def main(args):
 
     regional_network = False
     if networks and mask_images:
-        # mask を領域情報として流用する、現在は一回のコマンド呼び出しで1枚だけ対応
         regional_network = True
         print("use mask as region")
 
@@ -582,7 +579,6 @@ def main(args):
     else:
         guide_images = None
 
-    # seed指定時はseedを決めておく
     if args.seed is not None:
         random.seed(args.seed)
         predefined_seeds = [random.randint(0, 0x7FFFFFFF) for _ in range(args.n_iter * len(prompt_list) * args.images_per_prompt)]
@@ -613,6 +609,7 @@ def main(args):
             noise_shape = (LATENT_CHANNELS, height // DOWNSAMPLING_FACTOR, width // DOWNSAMPLING_FACTOR)
 
             prompts = []
+            negative_prompts = []
             start_code = torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
             noises = [
                 torch.zeros((batch_size, *noise_shape), device=device, dtype=dtype)
@@ -620,13 +617,21 @@ def main(args):
             ]
             seeds = []
             clip_prompts = []
+            init_images = None
+            mask_images = None
+
+            if guide_image is not None:  # CLIP image guided
+                guide_images = []
+            else:
+                guide_images = None
 
             # Generate a random number here to use the same random number regardless of the position in the batch. Also check if image/mask is the same in batch.
             all_images_are_same = True
             all_masks_are_same = True
             all_guide_images_are_same = True
-            for i, (_, (_, prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
+            for i, (_, (_, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image), _) in enumerate(batch):
                 prompts.append(prompt)
+                negative_prompts.append(negative_prompt)
                 seeds.append(seed)
                 clip_prompts.append(clip_prompt)
 
@@ -659,7 +664,7 @@ def main(args):
 
             noise_manager.reset_sampler_noises(noises)
 
-            # すべての画像が同じなら1枚だけpipeに渡すことでpipe側で処理を高速化する
+            # If all images are the same, passing only one image to the pipe speeds up processing on the pipe side.
             if init_images is not None and all_images_are_same:
                 init_images = init_images[0]
             if mask_images is not None and all_masks_are_same:
@@ -667,9 +672,8 @@ def main(args):
             if guide_images is not None and all_guide_images_are_same:
                 guide_images = guide_images[0]
 
-            # ControlNet使用時はguide imageをリサイズする
+            # Resize guide image when using ControlNet
             if control_nets:
-                # TODO resampleのメソッド
                 guide_images = guide_images if type(guide_images) == list else [guide_images]
                 guide_images = [i.resize((width, height), resample=PIL.Image.LANCZOS) for i in guide_images]
                 if len(guide_images) == 1:
@@ -766,6 +770,97 @@ def main(args):
                     break
             else:
                 prompt = prompt_list[prompt_index]
+            
+            # parse prompt
+            width = args.W
+            height = args.H
+            scale = args.scale
+            negative_scale = args.negative_scale
+            steps = args.steps
+            seeds = None
+            strength = 0.8 if args.strength is None else args.strength
+            negative_prompt = ""
+            clip_prompt = None
+            network_muls = None
+
+            if seeds is not None:
+                if len(seeds) < args.images_per_prompt:
+                    seeds = seeds * int(math.ceil(args.images_per_prompt / len(seeds)))
+                seeds = seeds[: args.images_per_prompt]
+            else:
+                if predefined_seeds is not None:
+                    seeds = predefined_seeds[-args.images_per_prompt :]
+                    predefined_seeds = predefined_seeds[: -args.images_per_prompt]
+                elif args.iter_same_seed:
+                    seeds = [iter_seed] * args.images_per_prompt
+                else:
+                    seeds = [random.randint(0, 0x7FFFFFFF) for _ in range(args.images_per_prompt)]
+                if args.interactive:
+                    print(f"seed: {seeds}")
+
+            init_image = mask_image = guide_image = None
+            for seed in seeds:  # images_per_prompt
+                if init_images is not None:
+                    init_image = init_images[global_step % len(init_images)]
+
+                    # must be divisable by 32
+                    width, height = init_image.size
+                    width = width - width % 32
+                    height = height - height % 32
+                    if width != init_image.size[0] or height != init_image.size[1]:
+                        print(
+                            f"img2img image size is not divisible by 32 so aspect ratio is changed"
+                        )
+
+                if mask_images is not None:
+                    mask_image = mask_images[global_step % len(mask_images)]
+
+                if guide_images is not None:
+                    if control_nets:
+                        c = len(control_nets)
+                        p = global_step % (len(guide_images) // c)
+                        guide_image = guide_images[p * c : p * c + c]
+                    else:
+                        guide_image = guide_images[global_step % len(guide_images)]
+                elif args.clip_image_guidance_scale > 0 or args.vgg16_guidance_scale > 0:
+                    if prev_image is None:
+                        print("Generate 1st image without guide image.")
+                    else:
+                        print("Use previous image as guide image.")
+                        guide_image = prev_image
+
+                if regional_network:
+                    num_sub_prompts = len(prompt.split(" AND "))
+                    assert (
+                        len(networks) <= num_sub_prompts
+                    ), "Number of networks must be less than or equal to number of sub prompts."
+                else:
+                    num_sub_prompts = None
+
+                b1 = BatchData(
+                    False,
+                    BatchDataBase(global_step, prompt, negative_prompt, seed, init_image, mask_image, clip_prompt, guide_image),
+                    BatchDataExt(
+                        width,
+                        height,
+                        steps,
+                        scale,
+                        negative_scale,
+                        strength,
+                        tuple(network_muls) if network_muls else None,
+                        num_sub_prompts,
+                    ),
+                )
+                if len(batch_data) > 0 and batch_data[-1].ext != b1.ext:
+                    process_batch(batch_data)
+                    batch_data.clear()
+
+                batch_data.append(b1)
+                if len(batch_data) == args.batch_size:
+                    prev_image = process_batch(batch_data)[0]
+                    batch_data.clear()
+
+                global_step += 1
 
             prompt_index += 1
 

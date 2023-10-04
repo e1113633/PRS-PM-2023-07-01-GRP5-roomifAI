@@ -1,0 +1,25 @@
+name: room
+channels:
+  - pytorch
+  - defaults
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.9.17
+  - pip=20.3
+  - cudatoolkit=11.8
+  - cuda=11.8.0
+  - cuda-cudart=11.8.89
+  - pytorch=2.0.1=*cuda*
+  - pytorch-cuda=11.8
+  - torchvision=0.15.2=*cu118
+  - ipykernel=6.25.0
+  - pip:
+      - albumentations==1.3.0
+      - diffusers==0.14.0
+      - opencv-python==4.7.0.68
+      - pytorch-lightning==1.9.0
+      - einops==0.6.0
+      - transformers==4.26.0
+      - tensorboard==2.12.0
+      - safetensors==0.2.6

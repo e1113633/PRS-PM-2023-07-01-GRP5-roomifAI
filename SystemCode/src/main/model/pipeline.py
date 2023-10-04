@@ -198,6 +198,12 @@ class PipelineLike:
         self.scheduler = scheduler
         self.safety_checker = None
 
+        # Textual Inversion
+        self.token_replacements = {}
+
+        # XTI
+        self.token_replacements_XTI = {}
+
         # CLIP guidance
         self.clip_guidance_scale = clip_guidance_scale
         self.clip_image_guidance_scale = clip_image_guidance_scale
@@ -216,6 +222,34 @@ class PipelineLike:
 
         # ControlNet
         self.control_nets: List[ControlNetInfo] = []
+
+     # Textual Inversion
+    def add_token_replacement(self, target_token_id, rep_token_ids):
+        self.token_replacements[target_token_id] = rep_token_ids
+
+    def replace_token(self, tokens, layer=None):
+        new_tokens = []
+        for token in tokens:
+            if token in self.token_replacements:
+                replacer_ = self.token_replacements[token]
+                if layer:
+                    replacer = []
+                for r in replacer_:
+                    if r in self.token_replacements_XTI:
+                        replacer.append(self.token_replacements_XTI[r][layer])
+                    else:
+                        replacer = replacer_
+                new_tokens.extend(replacer)
+            else:
+                new_tokens.append(token)
+        return new_tokens
+
+    def add_token_replacement_XTI(self, target_token_id, rep_token_ids):
+        self.token_replacements_XTI[target_token_id] = rep_token_ids
+
+    def set_control_nets(self, ctrl_nets):
+        self.control_nets = ctrl_nets
+
 
     def set_control_nets(self, ctrl_nets):
         self.control_nets = ctrl_nets
