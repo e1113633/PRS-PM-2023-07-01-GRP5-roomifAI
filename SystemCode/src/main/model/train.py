@@ -1682,7 +1682,10 @@ def replace_unet_cross_attn_to_memory_efficient():
     print("Replace CrossAttention.forward to use FlashAttention (not xformers)")
     flash_func = FlashAttentionFunction
 
-    def forward_flash_attn(self, x, context=None, mask=None):
+    def forward_flash_attn(self, x, encoder_hidden_states=None, attention_mask=None):
+        context = encoder_hidden_states
+        mask = attention_mask
+
         q_bucket_size = 512
         k_bucket_size = 1024
 
@@ -1710,7 +1713,7 @@ def replace_unet_cross_attn_to_memory_efficient():
 
         out = rearrange(out, "b h n d -> b n (h d)")
 
-        # diffusers 0.7.0~  わざわざ変えるなよ (;´Д｀)
+        # diffusers 0.7.0
         out = self.to_out[0](out)
         out = self.to_out[1](out)
         return out

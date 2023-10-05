@@ -195,7 +195,10 @@ def replace_unet_cross_attn_to_memory_efficient():
     print("Replace CrossAttention.forward to use NAI style Hypernetwork and FlashAttention")
     flash_func = FlashAttentionFunction
 
-    def forward_flash_attn(self, x, context=None, mask=None):
+    def forward_flash_attn(self, x, encoder_hidden_states=None, attention_mask=None):
+        context = encoder_hidden_states
+        mask = attention_mask
+        
         q_bucket_size = 512
         k_bucket_size = 1024
 
