@@ -13,7 +13,7 @@
       "console": "integratedTerminal",
       "args": [
         "--prompt",
-        "blue bedroom with a bed and dresser",
+        "purple bedroom with a bed and dresser",
         "--outdir",
         "./output/",
         "--bf16",

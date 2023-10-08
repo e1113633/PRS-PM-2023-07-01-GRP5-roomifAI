@@ -1,6 +1,8 @@
 *.safetensors
-SystemCode/src/main/output/
-SystemCode/src/main/training_data/
+SystemCode/src/main/training_data/*
+SystemCode/src/main/model/data/LoRA/*
+SystemCode/src/main/model/data/train_data/*
+SystemCode/src/main/model/checkpoints/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
