@@ -1,0 +1,57 @@
+[model_arguments]
+v2 = false
+v_parameterization = false
+pretrained_model_name_or_path = "./checkpoints/pretrained_model/v1-5-pruned-emaonly.safetensors"
+vae = "./checkpoints/checkpoints/vae/vae-ft-mse-840000-ema-pruned.ckpt"
+
+[additional_network_arguments]
+no_metadata = false
+unet_lr = 0.0001
+text_encoder_lr = 5e-5
+network_module = "networks.lora"
+network_dim = 32
+network_alpha = 16
+network_train_unet_only = false
+network_train_text_encoder_only = false
+
+[optimizer_arguments]
+optimizer_type = "AdamW8bit"
+learning_rate = 0.0001
+max_grad_norm = 1.0
+lr_scheduler = "constant"
+lr_warmup_steps = 0
+
+[dataset_arguments]
+cache_latents = true
+debug_dataset = false
+vae_batch_size = 4
+
+[training_arguments]
+output_dir = "./train/LoRA/output"
+output_name = "roomifai_living"
+save_precision = "bf16"
+save_every_n_epochs = 1
+train_batch_size = 6
+max_token_length = 225
+mem_eff_attn = false
+xformers = true
+max_train_epochs = 4
+max_data_loader_n_workers = 8
+persistent_data_loader_workers = true
+gradient_checkpointing = false
+gradient_accumulation_steps = 1
+mixed_precision = "bf16"
+clip_skip = 2
+project_dir = "./train/LoRA/logs"
+log_prefix = "roomifai_living"
+lowram = true
+
+[sample_prompt_arguments]
+sample_every_n_epochs = 1
+sample_sampler = "euler_a"
+
+[dreambooth_arguments]
+prior_loss_weight = 1.0
+
+[saving_arguments]
+save_model_as = "safetensors"

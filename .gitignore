@@ -1,8 +1,10 @@
 *.safetensors
-SystemCode/src/main/training_data/*
-SystemCode/src/main/model/data/LoRA/*
-SystemCode/src/main/model/data/train_data/*
-SystemCode/src/main/model/checkpoints/*
+SystemCode/src/main/checkpoints/pretrained_model/*
+SystemCode/src/main/checkpoints/vae/*
+SystemCode/src/main/train/LoRA/train_data/*
+SystemCode/src/main/train/LoRA/output/*
+SystemCode/src/main/train/LoRA/logs/*
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

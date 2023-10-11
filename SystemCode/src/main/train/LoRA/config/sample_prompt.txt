@@ -1,0 +1,3 @@
+
+  masterpiece, best quality, living room with minimalist modern wooden furniture \
+  --w 512   --h 512   --l 7   --s 28    

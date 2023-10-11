@@ -25,6 +25,27 @@
         "512"
       ],
       "justMyCode": false
+    },
+    {
+      "name": "Python: Train",
+      "type": "python",
+      "request": "launch",
+      "module": "accelerate.commands.launch",
+      "console": "integratedTerminal",
+      "args": [
+        "--config_file",
+        "C:/Users/JackChua/Projects/NUS/SEM02/PRS-PM-2023-07-01-GRP5-roomifAI/SystemCode/src/main/model/accelerate_config/config.yaml",
+        "--num_cpu_threads_per_process",
+        "1",
+        "train_network.py",
+        "--sample_prompts",
+        "./train/LoRA/config/sample_prompt.txt",
+        "--dataset_config",
+        "./train/LoRA/config/dataset_config.toml",
+        "--config_file",
+        "./train/LoRA/config/config_file.toml"
+      ],
+      "justMyCode": false
     }
   ]
 }
