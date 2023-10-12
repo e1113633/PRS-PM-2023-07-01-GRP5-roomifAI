@@ -4,6 +4,7 @@ SystemCode/src/main/checkpoints/vae/*
 SystemCode/src/main/train/LoRA/train_data/*
 SystemCode/src/main/train/LoRA/output/*
 SystemCode/src/main/train/LoRA/logs/*
+SystemCode/src/main/train/LoRA/*.safetensors
 
 
 # Byte-compiled / optimized / DLL files
