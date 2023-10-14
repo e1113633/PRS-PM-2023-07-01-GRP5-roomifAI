@@ -582,7 +582,7 @@ def create_network_from_weights(multiplier, file, vae, text_encoder, unet, weigh
         elif "lora_down" in key:
             dim = value.size()[0]
             modules_dim[lora_name] = dim
-            # print(lora_name, value.size(), dim)
+            print(lora_name, value.size(), dim)
 
     # support old LoRA without alpha
     for key in modules_dim.keys():

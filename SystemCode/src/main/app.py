@@ -1,18 +1,12 @@
-from collections import defaultdict
 from diffusers import StableDiffusionPipeline, EulerAncestralDiscreteScheduler
-# from diffusers.loaders import LoraLoaderMixin
+from networks.lora import create_network_from_weights
+from networks.pipeline import PipelineLike
 from safetensors.torch import load_file
 import torch
-import random
-import importlib
 from flask import Flask, Response, request, jsonify
 from flask_cors import CORS
 import io
 from PIL import Image
-
-
-app = Flask(__name__)
-CORS(app)
 
 loras = {
     "living": {
@@ -29,47 +23,82 @@ loras = {
     }
 }
 
-def load_lora(pipe, room, device):
+torch.cuda.empty_cache()
+
+def load_lora(room, vae, text_encoder, unet):
     lora = loras[room]
     path = lora['path']
     multiplier = lora['multiplier']
 
-    imported_module = importlib.import_module("networks.lora")
-    network, weights_sd = imported_module.create_network_from_weights(
-        multiplier, path, vae=pipe.vae, text_encoder=pipe.text_encoder, unet=pipe.unet, for_inference=True
+    network, weights_sd = create_network_from_weights(
+        multiplier, path, vae=vae, text_encoder=text_encoder, unet=unet, for_inference=True
     )
 
-    network.apply_to(pipe.text_encoder, pipe.unet)
     info = network.load_state_dict(weights_sd, False)
-    print(f"loaded LoRA weights: {info}")
-
-    return pipe
-
-
+    print(f"loaded LoRA weights: {room} {info}")
+    network.apply_to(text_encoder, unet)
+    info = network.load_state_dict(weights_sd, False)
+    print(f"weights are loaded: {info}")
+    
+    return network, weights_sd
 
 def load_sd(room):
     model_id = "runwayml/stable-diffusion-v1-5"
     dtype = torch.float16
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
-    pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # for key in loras.keys():
-    pipe = load_lora(pipe, room)
+    # base model
+    base_pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype)
+    text_encoder = base_pipe.text_encoder
+    vae = base_pipe.vae
+    unet = base_pipe.unet
+    tokenizer = base_pipe.tokenizer
+    scheduler = EulerAncestralDiscreteScheduler.from_config(base_pipe.scheduler.config)
+    del base_pipe
 
-    pipe = pipe.to(device)
-    pipe.enable_attention_slicing()
+    networks = []
+    network_default_muls = []
+    for key in loras.keys():
+        lora_params = loras[key]
+        network, weights_sd = load_lora(key, vae, text_encoder, unet)
+        network.to(dtype).to(device)
+        networks.append(network)
+        network_default_muls.append(lora_params['multiplier'])
+
+    if networks:
+        for n, m in zip(networks, network_default_muls):
+            n.set_multiplier(m)
+
+    pipe = PipelineLike(
+        device,
+        vae,
+        text_encoder,
+        tokenizer,
+        unet,
+        scheduler,
+        clip_skip=None
+    )
     return pipe
 
 def generate_image(pipe, prompt):
-    image = pipe(prompt).images[0]
+    image = pipe(
+        prompt=prompt,
+        output_type="pil"
+    )[0]
     return image
 
+
+app = Flask(__name__)
+CORS(app)
+
+@app.route("/", methods=["GET"])
+def health():
+    return "Healthy!"
 
 @app.route("/generate", methods=["GET"])
 def generate():
     prompt = request.args.get("prompt")
-    room = request.args.get("prompt")
+    room = request.args.get("room")
 
     # Load pipeline
     pipe = load_sd(room)
