@@ -433,7 +433,7 @@ class PipelineLike:
             # However this currently doesn't work in `mps`.
             latents_shape = (
                 batch_size * num_images_per_prompt,
-                self.unet.in_channels,
+                self.unet.config.in_channels,
                 height // 8,
                 width // 8,
             )
