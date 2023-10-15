@@ -17,7 +17,7 @@ from diffusers import (
 from diffusers.utils import deprecate
 from diffusers.configuration_utils import FrozenDict
 from networks.lora import LoRANetwork
-import tqdm
+from tqdm import tqdm
 import inspect
 import re
 

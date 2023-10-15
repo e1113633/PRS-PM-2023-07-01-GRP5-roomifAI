@@ -23,27 +23,26 @@ loras = {
     }
 }
 
-torch.cuda.empty_cache()
-
-def load_lora(room, vae, text_encoder, unet):
+def load_lora(room, vae, text_encoder, unet, request_multiplier):
     lora = loras[room]
     path = lora['path']
-    multiplier = lora['multiplier']
+    multiplier = request_multiplier if (type(request_multiplier) == int or type(request_multiplier) == float) else lora['multiplier']
 
     network, weights_sd = create_network_from_weights(
         multiplier, path, vae=vae, text_encoder=text_encoder, unet=unet, for_inference=True
     )
 
     info = network.load_state_dict(weights_sd, False)
-    print(f"loaded LoRA weights: {room} {info}")
     network.apply_to(text_encoder, unet)
     info = network.load_state_dict(weights_sd, False)
-    print(f"weights are loaded: {info}")
+    print(f"weights are loaded: {info} (multiplier: {multiplier})")
     
     return network, weights_sd
 
-def load_sd(room):
+def load_sd(room, multiplier):
+    torch.cuda.empty_cache()
     model_id = "runwayml/stable-diffusion-v1-5"
+    # model_path = "./checkpoints/pretrained_model/v1-5-pruned-emaonly.safetensors"
     dtype = torch.float16
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -56,18 +55,12 @@ def load_sd(room):
     scheduler = EulerAncestralDiscreteScheduler.from_config(base_pipe.scheduler.config)
     del base_pipe
 
-    networks = []
-    network_default_muls = []
-    for key in loras.keys():
-        lora_params = loras[key]
-        network, weights_sd = load_lora(key, vae, text_encoder, unet)
-        network.to(dtype).to(device)
-        networks.append(network)
-        network_default_muls.append(lora_params['multiplier'])
+    vae.to(dtype).to(device)
+    text_encoder.to(dtype).to(device)
+    unet.to(dtype).to(device)
 
-    if networks:
-        for n, m in zip(networks, network_default_muls):
-            n.set_multiplier(m)
+    network, weights_sd = load_lora(room, vae, text_encoder, unet, multiplier)
+    network.to(dtype).to(device)
 
     pipe = PipelineLike(
         device,
@@ -83,8 +76,11 @@ def load_sd(room):
 def generate_image(pipe, prompt):
     image = pipe(
         prompt=prompt,
-        output_type="pil"
-    )[0]
+        output_type="pil",
+        width=512,
+        height=512,
+        guidance_scale=1.0
+    )[0][0]
     return image
 
 
@@ -95,19 +91,25 @@ CORS(app)
 def health():
     return "Healthy!"
 
-@app.route("/generate", methods=["GET"])
+@app.route("/api/generate", methods=["GET"])
 def generate():
-    prompt = request.args.get("prompt")
-    room = request.args.get("room")
+    try:
+        prompt = request.args.get("prompt")
+        room = request.args.get("room")
+        multiplier = float(request.args.get("multiplier")) if request.args.get("multiplier") else None
 
-    # Load pipeline
-    pipe = load_sd(room)
+        # Load pipeline
+        pipe = load_sd(room, multiplier)
 
-    # Generate pipeline
-    image = generate_image(pipe, prompt)
-    image_bytes = io.BytesIO()
-    image.save(image_bytes, format="JPEG")
-    image_bytes = image_bytes.getvalue()
+        # Generate pipeline
+        image = generate_image(pipe, prompt)
+        image_bytes = io.BytesIO()
+        image.save(image_bytes, format="JPEG")
+        image_bytes = image_bytes.getvalue()
 
-    # return the response as an image
-    return Response(image_bytes, mimetype="image/jpeg")
+        # return the response as an image
+        return Response(image_bytes, mimetype="image/jpeg")
+    except Exception as error:
+        torch.cuda.empty_cache()
+        print("An exception occurred:", error)
+        return Response("An exception occurred")
