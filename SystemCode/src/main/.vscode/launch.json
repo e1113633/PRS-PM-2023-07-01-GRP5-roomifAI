@@ -1,0 +1,109 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Flask",
+      "type": "python",
+      "request": "launch",
+      "module": "flask",
+      "env": { "FLASK_APP": "app.py", "FLASK_DEBUG": "1" },
+      "args": ["run"],
+      "jinja": true,
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Generate",
+      "type": "python",
+      "request": "launch",
+      "program": "model/generate.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--prompt",
+        "purple bedroom with a bed and dresser",
+        "--outdir",
+        "./output/",
+        "--bf16",
+        "--n_iter",
+        "12",
+        "--H",
+        "512",
+        "--W",
+        "512"
+      ],
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Train",
+      "type": "python",
+      "request": "launch",
+      "module": "accelerate.commands.launch",
+      "console": "integratedTerminal",
+      "args": [
+        "--config_file",
+        "C:/Users/JackChua/Projects/NUS/SEM02/PRS-PM-2023-07-01-GRP5-roomifAI/SystemCode/src/main/model/accelerate_config/config.yaml",
+        "--num_cpu_threads_per_process",
+        "1",
+        "train_network.py",
+        "--sample_prompts",
+        "./train/LoRA/config/sample_prompt.txt",
+        "--dataset_config",
+        "./train/LoRA/config/dataset_config.toml",
+        "--config_file",
+        "./train/LoRA/config/config_file.toml"
+      ],
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Train 2",
+      "type": "python",
+      "request": "launch",
+      "module": "accelerate.commands.launch",
+      "console": "integratedTerminal",
+      "args": [
+        "accelerate",
+        "launch",
+        "--num_cpu_threads_per_process=2",
+        "./train_network.py",
+        "--enable_bucket",
+        "--min_bucket_reso=256",
+        "--max_bucket_reso=2048",
+        "--pretrained_model_name_or_path=runwayml/stable-diffusion-v1-5",
+        "--train_data_dir=C:/Users/JackChua/Projects/NUS/SEM02/PRS-PM-2023-07-01-GRP5-roomifAI/SystemCode/src/main/train/LoRA/train_data",
+        "--resolution=512,512",
+        "--output_dir=C:/Users/JackChua/Projects/NUS/SEM02/PRS-PM-2023-07-01-GRP5-roomifAI/SystemCode/src/main/train/LoRA/output",
+        "--logging_dir=C:/Users/JackChua/Projects/NUS/SEM02/PRS-PM-2023-07-01-GRP5-roomifAI/SystemCode/src/main/train/LoRA/logs",
+        "--network_alpha=1",
+        "--save_model_as=safetensors",
+        "--network_module=networks.lora",
+        "--text_encoder_lr=5e-05",
+        "--unet_lr=0.0001",
+        "--network_dim=8",
+        "--gradient_accumulation_steps=4",
+        "--output_name=roomifai_living",
+        "--lr_scheduler_num_cycles=1",
+        "--no_half_vae",
+        "--learning_rate=0.0001",
+        "--lr_scheduler=cosine",
+        "--lr_warmup_steps=40",
+        "--train_batch_size=1",
+        "--max_train_steps=400",
+        "--save_every_n_epochs=1",
+        "--mixed_precision=fp16",
+        "--save_precision=fp16",
+        "--caption_extension=.txt",
+        "--cache_latents",
+        "--optimizer_type=AdamW8bit",
+        "--max_data_loader_n_workers=0",
+        "--bucket_reso_steps=64",
+        "--save_every_n_steps=100",
+        "--bucket_no_upscale",
+        "--noise_offset=0.0"
+      ],
+      "justMyCode": false
+    }
+  ]
+}
