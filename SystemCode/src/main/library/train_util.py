@@ -781,10 +781,10 @@ class BaseDataset(torch.utils.data.Dataset):
             for _ in range(image_info.num_repeats):
                 self.bucket_manager.add_image(image_info.bucket_reso, image_info.image_key)
 
-        # bucket情報を表示、格納する
+
         if self.enable_bucket:
             self.bucket_info = {"buckets": {}}
-            print("number of images (including repeats) / 各bucketの画像枚数（繰り返し回数を含む）")
+            print("number of images (including repeats)")
             for i, (reso, bucket) in enumerate(zip(self.bucket_manager.resos, self.bucket_manager.buckets)):
                 count = len(bucket)
                 if count > 0:

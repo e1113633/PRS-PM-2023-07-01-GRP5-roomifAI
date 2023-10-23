@@ -140,7 +140,6 @@ def train_model(
     # Get list of function parameters and values
     parameters = list(locals().items())
     global command_running
-
     print_only_bool = True if print_only == True else False
     log.info(f'Start training LoRA {LoRA_type} ...')
     headless_bool = True if headless == True else False
