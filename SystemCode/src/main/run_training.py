@@ -12,12 +12,13 @@ from library.common_gui import (
     save_to_file,
     check_duplicate_filenames,
 )
+
+# Import and modify utils from kohya library: https://github.com/kohya-ss/sd-scripts/tree/main/library
 from library.class_command_executor import CommandExecutor
 
 from library.custom_logging import setup_logging
 
 
-# Imported and modified from kohya_ss library
 log = setup_logging()
 executor = CommandExecutor()
 

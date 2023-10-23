@@ -13,6 +13,8 @@ SCHEDULER_LINEAR_END = 0.0120
 SCHEDULER_TIMESTEPS = 1000
 SCHEDLER_SCHEDULE = "scaled_linear"
 
+DISABLE_LORA = False
+
 loras = {
     "living": {
         "file": "roomifai_living.safetensors",
@@ -46,6 +48,7 @@ def load_lora(room, vae, text_encoder, unet, request_multiplier):
 def load_sd(room, multiplier):
     torch.cuda.empty_cache()
     model_path = "./checkpoints/pretrained_model/v1-5-pruned-emaonly.safetensors"
+    
     dtype = torch.float16
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -62,7 +65,7 @@ def load_sd(room, multiplier):
     lora = loras[room]
     lora_file = lora['file']
 
-    if lora_file:
+    if lora_file and not DISABLE_LORA:
         base_pipe.load_lora_weights(
             "./LoRA/", local_files_only=True, use_safetensors=True, weight_name=lora_file
         )
