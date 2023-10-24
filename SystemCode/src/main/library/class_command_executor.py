@@ -16,7 +16,14 @@ class CommandExecutor:
                 'The command is already running. Please wait for it to finish.'
             )
         else:
-            self.process = subprocess.Popen(run_cmd, shell=True)
+            self.process = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, universal_newlines=True)
+            
+            for stdout_line in iter(self.process.stdout.readline, ""):
+                yield stdout_line 
+            self.process.stdout.close()
+            return_code = self.process.wait()
+            if return_code:
+                raise subprocess.CalledProcessError(return_code, run_cmd)
 
     def kill_command(self):
         if self.process and self.process.poll() is None:

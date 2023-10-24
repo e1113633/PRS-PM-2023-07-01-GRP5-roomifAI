@@ -57,7 +57,7 @@ function submit() {
 	main {
 		text-align: center;
 		width: 100%;
-		height: 100%;
+		min-height: 100%;
 		margin: 0 auto;
 		background: rgb(2,0,36);
 		background: linear-gradient(90deg, rgba(2,0,36,1) 0%, rgba(3,29,87,1) 52%, rgba(0,0,0,1) 100%);
@@ -87,8 +87,8 @@ function submit() {
 	}
 
 	.image {
-		width: 512px;
-		height: 512px;
+		width: 360px;
+		height: 360px;
 	}
 
 	.submit_btn {
