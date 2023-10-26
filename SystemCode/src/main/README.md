@@ -6,6 +6,12 @@ Installation can be done via Anaconda or Miniconda.The steps for installation of
 
 Miniconda can be installed by downloading the installer for your operating system from the official website: https://docs.conda.io/projects/miniconda/en/latest/index.html. For those who prefer a GUI, Anaconda would be preferable; the installation file is available via the link: https://www.anaconda.com/download
 
+It is recommended that you install mamba to increase installation speed.
+
+```bash
+conda install mamba -n base -c conda-forge
+```
+
 ## Package installations
 
 The steps for installation of the packages are as follows:
