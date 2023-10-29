@@ -7,17 +7,17 @@ RoomifAI (Room Visualizer) Version 2 is powered by advanced generative AI techno
 ## PROJECT TITLE
 ## RoomifAI (Room Visualizer)
 
-![RoomifAI](https://www.youtube.com/watch?v=fuN3DmhdAOs)
+`<RoomifAI>`: <https://www.youtube.com/watch?v=fuN3DmhdAOs>
 
 ---
 ## CREDITS / PROJECT CONTRIBUTION
 
 | Official Full Name  | Student ID (MTech Applicable)  | Work Items (Who Did What) | Email (Optional) |
 | :------------ |:---------------:| :-----| :-----|
-| Chua Jack Yune | A0269363U | Project Manager and Main Developer | jckynchua@yahoo.com |
-| Borromeo, Angelie Quiapo | A0270177A | Secondary Developer and Documentation| angelieqborromeo@gmail.com |
-| Kwatt Ivy | A0269639H | Secondary Developer| kwattivy@gmail.com |
-| Yeoh Wee Chye | A0165226H | Secondary Developer| | weechye0532@gmail.com |
+| Chua Jack Yune | A0269363U | Architect and Main Developer | jckynchua@yahoo.com |
+| Borromeo, Angelie Quiapo | A0270177A | Project Coordinator and Data Manager| angelieqborromeo@gmail.com |
+| Kwatt Ivy | A0269639H | Satable Diffusion Package Manager and Secondary Developer| kwattivy@gmail.com |
+| Yeoh Wee Chye | A0165226H | Secondary Developer| weechye0532@gmail.com |
 ---
 
 ## EXECUTIVE SUMMARY / PAPER ABSTRACT / INTRODUCTION
