@@ -7,6 +7,7 @@ set PARENT_DIR=%CD%
 python --version 2>nul | findstr /b /c:"Python %PYTHON_VER%" >nul
 if errorlevel 1 (
     echo Warning: Python version %PYTHON_VER% is recommended.
+	exit /b 2
 )
 
 
@@ -20,7 +21,11 @@ IF NOT EXIST venv (
 mkdir ".\logs\setup" > nul 2>&1
 
 :: install requirements
-python.exe -m pip install -r requirements.txt
+python.exe -m pip install --upgrade -r requirements.txt
+if errorlevel 1 (
+	exit /b 2
+)
+:: pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 :: change directory to main
 chdir ".\SystemCode\src\main"
